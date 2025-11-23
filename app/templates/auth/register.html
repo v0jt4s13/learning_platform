@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="card">
+    <h1>Rejestracja</h1>
+    {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+    <form method="post">
+      <label for="username">Login</label>
+      <input id="username" name="username" placeholder="jan.kowalski" required value="{{ request.form.username or '' }}">
+      <label for="password">Hasło</label>
+      <input id="password" name="password" type="password" minlength="8" required>
+      <label for="confirm">Powtórz hasło</label>
+      <input id="confirm" name="confirm" type="password" minlength="8" required>
+      <button type="submit">Utwórz konto</button>
+    </form>
+    <p class="muted">Masz konto? <a href="{{ url_for('auth.login') }}">Zaloguj się</a>.</p>
+  </div>
+{% endblock %}

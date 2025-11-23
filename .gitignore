@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.log
+instance/
+.env
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+app/static/audio/
+learning_platform.db

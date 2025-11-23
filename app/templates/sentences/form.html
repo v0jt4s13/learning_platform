@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="card">
+    <h1>Dodaj zdanie</h1>
+    {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+    <form id="sentence-form" method="post">
+      <label for="source_text">Zdanie do nauki</label>
+      <textarea id="source_text" name="source_text" rows="4" required>{{ request.form.source_text or '' }}</textarea>
+      <label for="source_language">Język źródłowy</label>
+      <select id="source_language" name="source_language">
+        {% for lang in languages %}
+          <option value="{{ lang }}" {% if request.form.source_language == lang %}selected{% endif %}>{{ lang|upper }}</option>
+        {% endfor %}
+      </select>
+      <p class="muted" id="targets-hint">Docelowe języki: {{ targets[0]|upper }}, {{ targets[1]|upper }}</p>
+      <button type="submit">Przetłumacz i zapisz</button>
+    </form>
+    <div id="result" style="margin-top:1.25rem;">
+      {% if created_sentence %}
+        <h2>Dodane tłumaczenie</h2>
+        <p><strong>{{ created_sentence.source_language|upper }}:</strong> {{ created_sentence.source_text }}</p>
+        <p><strong>{{ created_sentence.target_language_1|upper }}:</strong> {{ created_sentence.translated_text_1 }}</p>
+        <p><strong>{{ created_sentence.target_language_2|upper }}:</strong> {{ created_sentence.translated_text_2 }}</p>
+        <div class="audio-links">
+          <a href="{{ created_sentence.audio_url_source }}" target="_blank" rel="noopener">Źródło</a>
+          <a href="{{ created_sentence.audio_url_1 }}" target="_blank" rel="noopener">{{ created_sentence.target_language_1|upper }}</a>
+          <a href="{{ created_sentence.audio_url_2 }}" target="_blank" rel="noopener">{{ created_sentence.target_language_2|upper }}</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+    const sourceSelect = document.getElementById('source_language');
+    const hint = document.getElementById('targets-hint');
+    const languages = {{ languages|tojson }};
+    const form = document.getElementById('sentence-form');
+    const resultBox = document.getElementById('result');
+    const listUrl = "{{ url_for('sentences.list_sentences') }}";
+
+    function updateTargets() {
+      const selected = sourceSelect.value;
+      const targets = languages.filter((lang) => lang !== selected);
+      if (targets.length === 2) {
+        hint.textContent = `Docelowe języki: ${targets[0].toUpperCase()}, ${targets[1].toUpperCase()}`;
+      }
+    }
+
+    sourceSelect.addEventListener('change', updateTargets);
+    updateTargets();
+
+    form.addEventListener('submit', async (event) => {
+      if (!window.fetch) { return; }
+      event.preventDefault();
+      resultBox.innerHTML = '<p class="muted">Trwa generowanie tłumaczenia...</p>';
+      const payload = {
+        source_text: document.getElementById('source_text').value,
+        source_language: sourceSelect.value,
+      };
+      try {
+      const response = await fetch('{{ url_for('sentences.api_create_sentence') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+        const body = await response.json();
+        if (!response.ok) {
+          resultBox.innerHTML = `<div class="alert error">${body.error || 'Nie udało się przetłumaczyć.'}</div>`;
+          return;
+        }
+        resultBox.innerHTML = `
+          <h2>Dodane tłumaczenie</h2>
+          <p><strong>${body.source_language.toUpperCase()}:</strong> ${body.source_text}</p>
+          <p><strong>${body.target_language_1.toUpperCase()}:</strong> ${body.translated_text_1}</p>
+          <p><strong>${body.target_language_2.toUpperCase()}:</strong> ${body.translated_text_2}</p>
+          <div class="audio-links">
+            <a href="${body.audio_url_source}" target="_blank" rel="noopener">Źródło</a>
+            <a href="${body.audio_url_1}" target="_blank" rel="noopener">${body.target_language_1.toUpperCase()}</a>
+            <a href="${body.audio_url_2}" target="_blank" rel="noopener">${body.target_language_2.toUpperCase()}</a>
+          </div>
+          <p class="muted"><a href="${listUrl}">Przejdź do listy zdań</a></p>`;
+        form.reset();
+        updateTargets();
+      } catch (err) {
+        resultBox.innerHTML = '<div class="alert error">Wystąpił błąd sieci.</div>';
+      }
+    });
+  </script>
+{% endblock %}

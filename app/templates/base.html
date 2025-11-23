@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title or 'SentenceTrainer' }}</title>
+    <style>
+      :root { font-family: 'Inter', 'Segoe UI', sans-serif; background: #f4f6fb; color: #111827; }
+      body { margin: 0; min-height: 100vh; background: #f4f6fb; }
+      header { background: #1f2937; color: #fff; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
+      header nav { display: flex; gap: 1rem; flex-wrap: wrap; }
+      header a { color: #d1d5db; text-decoration: none; }
+      header a:hover { color: #fff; }
+      main { max-width: 960px; margin: 1.5rem auto; padding: 0 1.5rem 2rem; }
+      .card { background: #fff; border-radius: 1rem; box-shadow: 0 12px 30px rgba(15,23,42,0.08); padding: 1.75rem; }
+      .messages { margin-bottom: 1rem; }
+      .alert { padding: 0.75rem 1rem; border-radius: 0.6rem; margin-bottom: 0.5rem; font-size: 0.95rem; }
+      .alert.success { background: rgba(34,197,94,0.15); color: #166534; }
+      .alert.error { background: rgba(239,68,68,0.15); color: #991b1b; }
+      label { font-weight: 600; display: block; margin-bottom: 0.35rem; }
+      input, textarea, select { width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.5rem; border: 1px solid #d1d5db; font-size: 1rem; margin-bottom: 1rem; }
+      button { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; border: none; padding: 0.8rem 1.2rem; border-radius: 0.65rem; cursor: pointer; font-size: 1rem; font-weight: 600; }
+      button:hover { opacity: 0.95; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 0.75rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+      th { text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.08em; color: #6b7280; }
+      .audio-links { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+      .audio-links a { background: #eef2ff; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.85rem; color: #4338ca; text-decoration: none; }
+      .audio-links a:hover { background: #e0e7ff; }
+      .muted { color: #6b7280; font-size: 0.9rem; }
+      .filters { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 1.25rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div><strong>SentenceTrainer</strong></div>
+      <nav>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('sentences.list_sentences') }}">Moje zdania</a>
+          <a href="{{ url_for('sentences.create_sentence') }}">Dodaj zdanie</a>
+          <a href="{{ url_for('auth.logout') }}">Wyloguj</a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}">Logowanie</a>
+          <a href="{{ url_for('auth.register') }}">Rejestracja</a>
+        {% endif %}
+      </nav>
+    </header>
+    <main>
+      <div class="messages">
+        {% with messages = get_flashed_messages(with_categories=True) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

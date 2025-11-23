@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="card">
+    <h1>Dostępne lektory</h1>
+    {% if grouped %}
+      {% for lang, voices in grouped.items() %}
+        <h2>{{ lang|upper }}</h2>
+        {% if voices %}
+          <ul>
+            {% for voice in voices %}
+              <li>{{ voice.DisplayName }} (<code>{{ voice.ShortName }}</code>)</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">Brak głosów dla języka {{ lang|upper }}.</p>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <p class="muted">Brak skonfigurowanych głosów Azure.</p>
+    {% endif %}
+  </div>
+{% endblock %}
