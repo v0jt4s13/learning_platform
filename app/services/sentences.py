@@ -15,6 +15,8 @@ from .translation import (
     build_translation_service,
     build_tts_service,
     determine_target_languages,
+    provider_info,
+    tts_voice_label,
     validate_language_selection,
 )
 
@@ -95,8 +97,14 @@ class SentenceTrainerService:
         target_one, target_two = determine_target_languages(source_language)
         validate_language_selection(source_language, target_one, target_two)
 
+        providers = provider_info(current_app)
+
         translated_one = self.translator.translate(cleaned_text, source_language, target_one)
         translated_two = self.translator.translate(cleaned_text, source_language, target_two)
+
+        voice_source = tts_voice_label(self.tts, source_language)
+        voice_one = tts_voice_label(self.tts, target_one)
+        voice_two = tts_voice_label(self.tts, target_two)
 
         sentence = Sentence(
             student=student,
@@ -106,6 +114,11 @@ class SentenceTrainerService:
             target_language_2=target_two,
             translated_text_1=translated_one,
             translated_text_2=translated_two,
+            translation_provider=providers.get("translation_provider"),
+            tts_provider=providers.get("tts_provider"),
+            tts_voice_source=voice_source,
+            tts_voice_1=voice_one,
+            tts_voice_2=voice_two,
         )
         db.session.add(sentence)
         db.session.flush()

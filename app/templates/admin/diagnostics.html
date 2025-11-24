@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="card">
+    <h1>Diagnoza usług</h1>
+    <p class="muted">Widok dostępny tylko dla użytkownika <code>admin</code>. Pokazuje, czy aplikacja ma dostęp do wymaganych kluczy/serwisów.</p>
+
+    <form method="post" action="{{ url_for('admin.set_translation_provider') }}" style="margin: 1rem 0;">
+      <label for="provider">Domyślny provider tłumaczeń</label>
+      <select id="provider" name="provider">
+        {% for option in ['aws', 'openai', 'mock'] %}
+          <option value="{{ option }}" {% if selected_provider == option %}selected{% endif %}>{{ option|upper }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Zapisz</button>
+      <p class="muted">AWS wymaga kluczy AWS Translate; OpenAI wymaga poprawnego <code>OPENAI_API_KEY</code>.</p>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.set_tts_provider') }}" style="margin: 1rem 0;">
+      <label for="tts_provider">Domyślny provider Text-to-Speech</label>
+      <select id="tts_provider" name="provider">
+        {% for option in ['azure', 'google', 'mock'] %}
+          <option value="{{ option }}" {% if selected_tts_provider == option %}selected{% endif %}>{{ option|upper }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Zapisz</button>
+      <p class="muted">Azure wymaga <code>AZURE_SPEECH_KEY</code>/<code>AZURE_REGION</code>. Google wymaga <code>GOOGLE_APPLICATION_CREDENTIALS</code> i konfiguracji bucketu/prefixu.</p>
+    </form>
+
+    <div style="margin: 1rem 0;">
+      <p><strong>Lektor TTS per język ({{ selected_tts_provider|upper }})</strong></p>
+      {% for lang in ['pl', 'en', 'de'] %}
+        <form method="post" action="{{ url_for('admin.set_tts_voice') }}" style="margin-bottom: 0.5rem;">
+          <input type="hidden" name="provider" value="{{ selected_tts_provider }}">
+          <input type="hidden" name="language" value="{{ lang }}">
+          <label for="tts_voice_{{ lang }}">Lektor {{ lang|upper }}</label>
+          {% if selected_tts_provider == 'azure' %}
+            <select id="tts_voice_{{ lang }}" name="voice">
+              <option value="">Domyślne (wg mapy)</option>
+              {% for voice in azure_voices.get(lang, []) %}
+                <option value="{{ voice.Name }}" {% if selected_tts_voice.get(lang) == voice.Name %}selected{% endif %}>
+                  {{ voice.Name }} ({{ voice.Locale }} / {{ voice.DisplayName }})
+                </option>
+              {% endfor %}
+            </select>
+          {% elif selected_tts_provider == 'google' %}
+            <select id="tts_voice_{{ lang }}" name="voice">
+              <option value="">Domyślne (wg mapy)</option>
+              {% if lang == 'pl' %}
+                {% for v in ['pl-PL-Wavenet-E', 'pl-PL-Standard-E'] %}
+                  <option value="{{ v }}" {% if selected_tts_voice.get(lang) == v %}selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+              {% elif lang == 'en' %}
+                {% for v in ['en-GB-Wavenet-A','en-GB-Wavenet-B','en-GB-Wavenet-C','en-GB-Wavenet-D'] %}
+                  <option value="{{ v }}" {% if selected_tts_voice.get(lang) == v %}selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+              {% elif lang == 'de' %}
+                {% for v in ['de-DE-Wavenet-A','de-DE-Wavenet-B','de-DE-Wavenet-C'] %}
+                  <option value="{{ v }}" {% if selected_tts_voice.get(lang) == v %}selected{% endif %}>{{ v }}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          {% else %}
+            <input id="tts_voice_{{ lang }}" name="voice" value="{{ selected_tts_voice.get(lang) or '' }}" placeholder="np. en-US-Wavenet-D">
+          {% endif %}
+          <button type="submit">Zapisz</button>
+        </form>
+      {% endfor %}
+      <p class="muted">Pozostaw puste, aby używać domyślnych głosów dla danego providera. Lista Azure filtruje głosy do języka.</p>
+    </div>
+
+    <h2>Tłumaczenia</h2>
+    <ul>
+      <li><strong>Skonfigurowany provider:</strong> {{ translation.configured_provider }}</li>
+      <li><strong>Aktywny backend:</strong> {{ translation.backend }}</li>
+      <li><strong>AWS credentials:</strong> {{ "tak" if translation.aws_credentials_present else "brak" }} (region: {{ translation.aws_region or "—" }})</li>
+      {% if translation.missing_env %}
+        <li><strong>Brakujące zmienne:</strong>
+          {% for name in translation.missing_env %}
+            <span style="color:#b91c1c; font-weight:600;">{{ name }}</span>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </li>
+      {% endif %}
+      {% if translation.note %}<li class="muted">{{ translation.note }}</li>{% endif %}
+    </ul>
+
+    <h2>Text-to-Speech</h2>
+    <ul>
+      <li><strong>Skonfigurowany provider:</strong> {{ tts.configured_provider }}</li>
+      <li><strong>Aktywny backend:</strong> {{ tts.backend }}</li>
+      <li><strong>Azure Speech key:</strong> {{ "tak" if tts.azure_key_present else "brak" }} (region: {{ tts.azure_region or "—" }})</li>
+      <li><strong>Google credentials:</strong> {{ "tak" if tts.google_credentials_present else "brak" }} (project: {{ tts.google_project or "—" }})</li>
+      <li><strong>Wybrani lektorzy:</strong>
+        {% for lang in ['pl','en','de'] %}
+          {{ lang|upper }}: {{ selected_tts_voice.get(lang) or "domyślny" }}{% if not loop.last %}; {% endif %}
+        {% endfor %}
+      </li>
+      {% if tts.missing_env %}
+        <li><strong>Brakujące zmienne:</strong>
+          {% for name in tts.missing_env %}
+            <span style="color:#b91c1c; font-weight:600;">{{ name }}</span>{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </li>
+      {% endif %}
+      {% if tts.note %}<li class="muted">{{ tts.note }}</li>{% endif %}
+    </ul>
+
+    <h2>Storage audio</h2>
+    <ul>
+      <li><strong>Backend:</strong> {{ storage.backend }}</li>
+      {% if storage.bucket %}<li><strong>Bucket:</strong> {{ storage.bucket }}</li>{% endif %}
+      {% if storage.base_url %}<li><strong>Base URL:</strong> {{ storage.base_url }}</li>{% endif %}
+      {% if storage.region %}<li><strong>Region:</strong> {{ storage.region }}</li>{% endif %}
+      {% if storage.base_dir %}<li><strong>Katalog lokalny:</strong> {{ storage.base_dir }}</li>{% endif %}
+      {% if storage.note %}<li class="muted">{{ storage.note }}</li>{% endif %}
+    </ul>
+  </div>
+{% endblock %}

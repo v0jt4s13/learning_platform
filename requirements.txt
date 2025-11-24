@@ -6,3 +6,4 @@ boto3==1.35.95
 requests==2.32.3
 pytest==8.4.2
 gunicorn==23.0.0
+google-cloud-texttospeech==2.20.0

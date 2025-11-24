@@ -37,6 +37,10 @@ class StudentAccount(db.Model, UserMixin):
 
     sentences = db.relationship("Sentence", back_populates="student", cascade="all, delete-orphan")
 
+    @property
+    def is_admin(self) -> bool:
+        return (self.username or "").lower() == "admin"
+
     def set_password(self, raw_password: str) -> None:
         self.password_hash = generate_password_hash(raw_password)
 
@@ -47,6 +51,28 @@ class StudentAccount(db.Model, UserMixin):
 
     def get_id(self) -> str:  # noqa: D401
         return str(self.id)
+
+
+class AppSetting(db.Model):
+    __tablename__ = "lp_settings"
+
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.String(500), nullable=True)
+
+    @classmethod
+    def get(cls, key: str, default: str | None = None) -> str | None:
+        row = cls.query.filter_by(key=key).first()
+        return row.value if row else default
+
+    @classmethod
+    def set(cls, key: str, value: str | None) -> None:
+        row = cls.query.filter_by(key=key).first()
+        if row:
+            row.value = value
+        else:
+            row = cls(key=key, value=value)
+            db.session.add(row)
+        db.session.commit()
 
 
 class Sentence(db.Model):
@@ -63,6 +89,11 @@ class Sentence(db.Model):
     audio_url_source = db.Column(db.String(512))
     audio_url_1 = db.Column(db.String(512))
     audio_url_2 = db.Column(db.String(512))
+    translation_provider = db.Column(db.String(32))
+    tts_provider = db.Column(db.String(32))
+    tts_voice_source = db.Column(db.String(128))
+    tts_voice_1 = db.Column(db.String(128))
+    tts_voice_2 = db.Column(db.String(128))
     created_at = db.Column(db.DateTime, default=dt.datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=dt.datetime.utcnow, nullable=False)
 
@@ -86,6 +117,11 @@ class Sentence(db.Model):
             "audio_url_source": self.audio_url_source,
             "audio_url_1": self.audio_url_1,
             "audio_url_2": self.audio_url_2,
+            "translation_provider": self.translation_provider,
+            "tts_provider": self.tts_provider,
+            "tts_voice_source": self.tts_voice_source,
+            "tts_voice_1": self.tts_voice_1,
+            "tts_voice_2": self.tts_voice_2,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

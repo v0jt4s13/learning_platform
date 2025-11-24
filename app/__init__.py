@@ -12,16 +12,26 @@ from .extensions import db, login_manager
 
 def create_app() -> Flask:
     project_root = Path(__file__).resolve().parent.parent
-    data_settings = Path("/opt/apps/data_settings/.env")
-    if data_settings.exists() and os.access(data_settings, os.R_OK):
-        load_dotenv(data_settings)
+    data_settings_candidates = [
+        Path(os.getenv("DATA_SETTINGS_PATH", "")),
+        Path("/opt/apps/data_settings/.env"),
+        project_root.parent / "data_settings/.env",
+    ]
+    for candidate in data_settings_candidates:
+        if candidate and candidate.exists() and os.access(candidate, os.R_OK):
+            load_dotenv(candidate)
     env_path = project_root / ".env"
     if env_path.exists():
         load_dotenv(env_path)
 
     app = Flask(__name__)
     default_db_path = project_root / "learning_platform.db"
-    app.config.setdefault("SQLALCHEMY_DATABASE_URI", os.getenv("DB_URL", f"sqlite:///{default_db_path}"))
+    db_url = (
+        os.getenv("DB_URL_LEARNING_PLATFORM")
+        or os.getenv("DB_URL")
+        or f"sqlite:///{default_db_path}"
+    )
+    app.config.setdefault("SQLALCHEMY_DATABASE_URI", db_url)
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
     secret = os.getenv("FLASK_SECRET_KEY", "dev")
     app.config["SECRET_KEY"] = secret
@@ -74,9 +84,11 @@ def create_app() -> Flask:
         return redirect(url_for("auth.login"))
 
     from .auth.routes import auth_bp
+    from .admin.routes import admin_bp
     from .sentences.routes import sentences_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
     app.register_blueprint(sentences_bp)
 
     with app.app_context():

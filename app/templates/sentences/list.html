@@ -97,6 +97,15 @@
                   <span class="sentence-text">{{ sentence.translated_text_2 }}</span>
                 </li>
               </ul>
+              {% if current_user.is_admin %}
+                <div class="muted small">
+                  Providerzy (dla tego zdania):
+                  tłumacz <strong>{{ (sentence.translation_provider or 'n/d')|upper }}</strong>,
+                  TTS <strong>{{ (sentence.tts_provider or 'n/d')|upper }}</strong>
+                  <br>
+                  <span class="muted">Lektorzy: PL={{ sentence.tts_voice_source or 'domyślny' }}, {{ sentence.target_language_1|upper }}={{ sentence.tts_voice_1 or 'domyślny' }}, {{ sentence.target_language_2|upper }}={{ sentence.tts_voice_2 or 'domyślny' }}</span>
+                </div>
+              {% endif %}
             </div>
             <div class="action-column">
               <div class="muted small">{{ sentence.created_at.strftime('%Y-%m-%d %H:%M') if sentence.created_at else '' }}</div>

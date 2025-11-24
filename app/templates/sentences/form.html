@@ -26,6 +26,9 @@
           <a href="{{ created_sentence.audio_url_1 }}" target="_blank" rel="noopener">{{ created_sentence.target_language_1|upper }}</a>
           <a href="{{ created_sentence.audio_url_2 }}" target="_blank" rel="noopener">{{ created_sentence.target_language_2|upper }}</a>
         </div>
+        {% if current_user.is_admin %}
+          <p class="muted">Providerzy dla tego tłumaczenia: tłumacz <strong>{{ (created_sentence.translation_provider or 'n/d')|upper }}</strong>, TTS <strong>{{ (created_sentence.tts_provider or 'n/d')|upper }}</strong>. Lektorzy: PL=<strong>{{ created_sentence.tts_voice_source or 'domyślny' }}</strong>, {{ created_sentence.target_language_1|upper }}=<strong>{{ created_sentence.tts_voice_1 or 'domyślny' }}</strong>, {{ created_sentence.target_language_2|upper }}=<strong>{{ created_sentence.tts_voice_2 or 'domyślny' }}</strong></p>
+        {% endif %}
       {% endif %}
     </div>
   </div>
