@@ -12,8 +12,8 @@ from .extensions import db, login_manager
 
 def create_app() -> Flask:
     project_root = Path(__file__).resolve().parent.parent
-    data_settings = Path("/home/vs/projects/ai/data_settings/.env")
-    if data_settings.exists():
+    data_settings = Path("/opt/apps/data_settings/.env")
+    if data_settings.exists() and os.access(data_settings, os.R_OK):
         load_dotenv(data_settings)
     env_path = project_root / ".env"
     if env_path.exists():
