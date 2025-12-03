@@ -37,8 +37,10 @@
       <nav>
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('sentences.list_sentences') }}">Moje zdania</a>
+          <a href="{{ url_for('sentences.shared_sentences') }}">Zdania wspólne</a>
           <a href="{{ url_for('sentences.create_sentence') }}">Dodaj zdanie</a>
           {% if current_user.is_admin %}
+            <a href="{{ url_for('admin.shared_sentences') }}">Zadania wspólne (admin)</a>
             <a href="{{ url_for('admin.diagnostics') }}">Diagnoza</a>
           {% endif %}
           <a href="{{ url_for('auth.logout') }}">Wyloguj</a>

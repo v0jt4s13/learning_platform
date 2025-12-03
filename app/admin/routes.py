@@ -7,7 +7,9 @@ from typing import Any
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
-from ..models import AppSetting
+from ..models import AppSetting, DifficultyLevel, SharedSentence
+from ..services.generator import SentenceGenerationError, SentenceGenerationService
+from ..services.shared_sentences import SharedSentenceService
 from ..services.storage import LocalStorage, S3Storage, build_storage
 from ..services.translation import (
     AWSTranslateService,
@@ -15,6 +17,8 @@ from ..services.translation import (
     MockTextToSpeechService,
     MockTranslationService,
     OpenAITranslationService,
+    SentenceProcessingError,
+    SentenceValidationError,
     configured_tts_voices,
     list_azure_voices,
     build_translation_service,
@@ -248,3 +252,111 @@ def set_tts_voice():
     AppSetting.set(key, voice or None)
     flash(f"Ustawiono lektora dla {provider.upper()} / {language.upper()}: {voice or 'domyślny'}", "success")
     return redirect(url_for("admin.diagnostics"))
+
+
+@admin_bp.route("/shared-sentences", methods=["GET", "POST"])
+@login_required
+def shared_sentences():
+    _require_admin()
+    created: list[SharedSentence] = []
+    raw_response: str | None = None
+    error = None
+    status_filter = request.args.get("status") or "draft"
+    if request.method == "POST":
+        prompt = request.form.get("prompt") or ""
+        difficulty = request.form.get("difficulty") or DifficultyLevel.BEGINNER.value
+        source_language = request.form.get("source_language") or "pl"
+        generator = SentenceGenerationService()
+        service = SharedSentenceService()
+        try:
+            generated = generator.generate(prompt)
+            raw_response = generated.raw_response
+            texts = [item.text for item in generated.sentences if item.text]
+            if not texts:
+                error = "Model nie zwrócił żadnych zdań."
+            else:
+                created = service.create_from_prompt(
+                    prompt,
+                    difficulty,
+                    source_language,
+                    texts,
+                    created_by=getattr(current_user, "id", None),
+                )
+                flash(f"Dodano {len(created)} zdań do kolejki tłumaczeń.", "success")
+        except (SentenceGenerationError, SentenceValidationError) as exc:
+            error = str(exc)
+
+    service = SharedSentenceService()
+    query = SharedSentence.query.order_by(SharedSentence.created_at.desc())
+    if status_filter != "all":
+        if status_filter == "draft":
+            query = query.filter(SharedSentence.status == "draft")
+        elif status_filter == "translated":
+            query = query.filter(SharedSentence.status == "translated")
+    shared = query.limit(200).all()
+    return render_template(
+        "admin/shared_sentences.html",
+        created=created,
+        error=error,
+        shared=shared,
+        difficulties=DifficultyLevel.values(),
+        raw_response=raw_response,
+        status_filter=status_filter,
+    )
+
+
+@admin_bp.route("/shared-sentences/<int:sentence_id>/translate", methods=["POST"])
+@login_required
+def translate_shared_sentence(sentence_id: int):
+    _require_admin()
+    shared = SharedSentence.query.filter_by(id=sentence_id).first()
+    if not shared:
+        flash("Nie znaleziono zdania.", "error")
+        return redirect(url_for("admin.shared_sentences"))
+
+    service = SharedSentenceService()
+    try:
+        service.translate(shared)
+        flash("Zdanie przetłumaczone i udostępnione.", "success")
+    except (SentenceValidationError, SentenceProcessingError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("admin.shared_sentences"))
+
+
+@admin_bp.route("/shared-sentences/<int:sentence_id>/delete", methods=["POST"])
+@login_required
+def delete_shared_sentence(sentence_id: int):
+    _require_admin()
+    service = SharedSentenceService()
+    if service.delete(sentence_id):
+        flash("Zdanie zostało usunięte.", "success")
+    else:
+        flash("Nie znaleziono zdania.", "error")
+    return redirect(url_for("admin.shared_sentences"))
+
+
+@admin_bp.route("/shared-sentences/bulk-delete", methods=["POST"])
+@login_required
+def bulk_delete_shared_sentences():
+    _require_admin()
+    ids = request.form.getlist("ids")
+    cleaned: list[int] = []
+    for raw in ids:
+        try:
+            cleaned.append(int(raw))
+        except ValueError:
+            continue
+    if not cleaned:
+        flash("Nie wybrano żadnych pozycji do usunięcia.", "error")
+        return redirect(url_for("admin.shared_sentences", status=request.args.get("status", "draft")))
+
+    service = SharedSentenceService()
+    removed = 0
+    for sid in cleaned:
+        if service.delete(sid):
+            removed += 1
+    if removed:
+        flash(f"Usunięto {removed} pozycji.", "success")
+    else:
+        flash("Nie udało się usunąć wskazanych pozycji.", "error")
+    return redirect(url_for("admin.shared_sentences", status=request.args.get("status", "draft")))

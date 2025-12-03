@@ -1,8 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
   <div class="card">
+    <a href="/sentences/new">Dodaj nowe zdanie</a>
     <h1>Moje zdania</h1>
     <style>
+      .card a {
+          float: right;
+      }
       .sentences-groups {
         display: flex;
         flex-direction: column;

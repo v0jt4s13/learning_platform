@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="card">
+    <h1>Zadania wspólne</h1>
+    <p class="muted">Wygeneruj zdania z promptu, a następnie przetłumacz je i udostępnij wszystkim użytkownikom. Lista poniżej domyślnie pokazuje tylko drafty (kolejkę do tłumaczenia).</p>
+    {% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+    {% if raw_response is not none %}
+      <div class="alert" style="background:#f8fafc; border:1px solid #e5e7eb; color:#111827; white-space:pre-wrap; font-family:monospace; overflow:auto; max-height:240px; margin-bottom:1rem;">
+        {{ raw_response or '[pusta odpowiedź]' }}
+      </div>
+    {% endif %}
+    <form method="post" style="margin-bottom:1.5rem;">
+      <label for="prompt">Prompt</label>
+      <textarea id="prompt" name="prompt" rows="3" required placeholder="Wymyśl zdania z zakresu 'ubrania i moda' dla poziomu trudności 'Beginner'"></textarea>
+
+      <label for="difficulty">Poziom trudności</label>
+      <select id="difficulty" name="difficulty">
+        {% for level in difficulties %}
+          <option value="{{ level }}">{{ level|capitalize }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="source_language">Język źródłowy</label>
+      <select id="source_language" name="source_language">
+        {% for lang in ['pl', 'en', 'de'] %}
+          <option value="{{ lang }}">{{ lang|upper }}</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit">Wyślij prompt</button>
+    </form>
+
+    {% if created %}
+      <div class="alert success">Dodano {{ created|length }} nowych zdań. Użyj przycisku „Tłumacz” przy każdym z nich.</div>
+    {% endif %}
+
+    <div class="filters" style="margin: 0 0 1rem 0;">
+      <form method="get" style="display:flex; gap:0.5rem; align-items:flex-end;">
+        <div>
+          <label for="status">Widok</label>
+          <select id="status" name="status">
+            <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Tylko drafty</option>
+            <option value="translated" {% if status_filter == 'translated' %}selected{% endif %}>Tylko przetłumaczone</option>
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Wszystkie</option>
+          </select>
+        </div>
+        <button type="submit">Filtruj</button>
+      </form>
+    </div>
+
+    {% if shared %}
+      <form id="bulk-form" method="post" action="{{ url_for('admin.bulk_delete_shared_sentences') }}">
+        <input type="hidden" name="status" value="{{ status_filter }}">
+      </form>
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="select-all"></th>
+            <th>Poziom</th>
+            <th>Zdanie</th>
+            <th>Status</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sentence in shared %}
+            <tr>
+              <td><input type="checkbox" name="ids" value="{{ sentence.id }}" class="row-checkbox" form="bulk-form"></td>
+              <td>{{ sentence.difficulty|capitalize }}</td>
+              <td>
+                <div><strong>{{ sentence.source_language|upper }}:</strong> {{ sentence.source_text }}</div>
+                {% if sentence.translated_text_1 %}
+                  <div class="muted">{{ sentence.target_language_1|upper }}: {{ sentence.translated_text_1 }}</div>
+                {% endif %}
+                {% if sentence.translated_text_2 %}
+                  <div class="muted">{{ sentence.target_language_2|upper }}: {{ sentence.translated_text_2 }}</div>
+                {% endif %}
+              </td>
+              <td>{{ sentence.status }}</td>
+              <td>
+                <form method="post" action="{{ url_for('admin.translate_shared_sentence', sentence_id=sentence.id) }}" style="display:inline;">
+                  <button type="submit" {% if sentence.status == 'translated' %}disabled{% endif %}>Tłumacz</button>
+                </form>
+                <form method="post" action="{{ url_for('admin.delete_shared_sentence', sentence_id=sentence.id) }}" style="display:inline;" onsubmit="return confirm('Usunąć zdanie?');">
+                  <button type="submit" class="delete-btn">Usuń</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="margin-top: 0.75rem; display:flex; gap:0.5rem; align-items:center;">
+        <button type="submit" class="delete-btn" form="bulk-form" onclick="return confirm('Usunąć zaznaczone?');">Usuń zaznaczone</button>
+        <span class="muted" id="selected-counter"></span>
+      </div>
+    {% else %}
+      <p class="muted">Brak wygenerowanych zdań.</p>
+    {% endif %}
+  </div>
+  <script>
+    const selectAll = document.getElementById('select-all');
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    const counter = document.getElementById('selected-counter');
+
+    function updateCounter() {
+      const checked = Array.from(rowCheckboxes).filter((cb) => cb.checked).length;
+      if (counter) {
+        counter.textContent = checked ? `Zaznaczone: ${checked}` : '';
+      }
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', (e) => {
+        rowCheckboxes.forEach((cb) => { cb.checked = e.target.checked; });
+        updateCounter();
+      });
+    }
+    rowCheckboxes.forEach((cb) => {
+      cb.addEventListener('change', () => {
+        if (selectAll && !cb.checked) {
+          selectAll.checked = false;
+        }
+        updateCounter();
+      });
+    });
+    updateCounter();
+  </script>
+{% endblock %}

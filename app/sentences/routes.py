@@ -3,8 +3,9 @@ from __future__ import annotations
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for, current_app
 from flask_login import current_user, login_required
 
-from ..models import LANGUAGE_CHOICES, Sentence, StudentAccount
+from ..models import DifficultyLevel, LANGUAGE_CHOICES, Sentence, StudentAccount
 from ..services.sentences import SentenceTrainerService
+from ..services.shared_sentences import SharedSentenceService
 from ..services.translation import (
     SentenceProcessingError,
     SentenceValidationError,
@@ -158,6 +159,40 @@ def api_delete_sentence(sentence_id: int):
     if not service.delete_sentence(student, sentence_id):
         return jsonify({"error": "Nie znaleziono zdania."}), 404
     return "", 204
+
+
+@sentences_bp.route("/shared", methods=["GET"])
+@login_required
+def shared_sentences():
+    _require_student()
+    difficulty = request.args.get("difficulty") or None
+    if difficulty and difficulty not in DifficultyLevel.values():
+        difficulty = None
+    search = request.args.get("q") or None
+    try:
+        page = max(1, int(request.args.get("page", 1) or 1))
+    except ValueError:
+        page = 1
+
+    service = SharedSentenceService()
+    pagination = service.list_shared(
+        difficulty=difficulty,
+        search=search,
+        page=page,
+        per_page=50,
+        only_translated=True,
+    )
+
+    grouped = {level: [] for level in DifficultyLevel.values()}
+    for sentence in pagination.items:
+        grouped.get(sentence.difficulty, []).append(sentence)
+
+    return render_template(
+        "sentences/shared_list.html",
+        grouped=grouped,
+        pagination=pagination,
+        filters={"difficulty": difficulty, "q": search},
+    )
 
 
 @sentences_bp.route("/voices", methods=["GET"])

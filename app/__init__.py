@@ -56,6 +56,9 @@ def create_app() -> Flask:
         "en": os.getenv("AZURE_VOICE_EN", "en-GB-MiaNeural"),
         "de": os.getenv("AZURE_VOICE_DE", "de-DE-MajaNeural"),
     })
+    app.config.setdefault("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+    app.config.setdefault("OPENAI_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1/chat/completions"))
+    app.config.setdefault("OPENAI_GENERATOR_MODEL", os.getenv("OPENAI_GENERATOR_MODEL", "gpt-4o-mini"))
     app.config.setdefault("S3_BUCKET", os.getenv("S3_BUCKET"))
     app.config.setdefault("S3_REGION", os.getenv("S3_REGION"))
     app.config.setdefault("S3_BASE_URL", os.getenv("S3_BASE_URL"))

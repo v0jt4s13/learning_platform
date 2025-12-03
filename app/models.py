@@ -23,8 +23,22 @@ class LanguageCode(str, Enum):
 LANGUAGE_CHOICES = LanguageCode.values()
 
 
+class DifficultyLevel(str, Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+    @classmethod
+    def values(cls) -> tuple[str, str, str]:
+        return cls.BEGINNER.value, cls.INTERMEDIATE.value, cls.ADVANCED.value
+
+
 def language_enum() -> db.Enum:
     return db.Enum(*LANGUAGE_CHOICES, name="language_code")
+
+
+def difficulty_enum() -> db.Enum:
+    return db.Enum(*DifficultyLevel.values(), name="difficulty_level")
 
 
 class StudentAccount(db.Model, UserMixin):
@@ -128,3 +142,58 @@ class Sentence(db.Model):
 
     def touch(self) -> None:
         self.updated_at = dt.datetime.utcnow()
+
+
+class SharedSentence(db.Model):
+    __tablename__ = "lp_shared_sentences"
+
+    id = db.Column(db.Integer, primary_key=True)
+    prompt = db.Column(db.Text, nullable=False)
+    difficulty = db.Column(difficulty_enum(), nullable=False, index=True)
+    source_language = db.Column(language_enum(), nullable=False)
+    source_text = db.Column(db.Text, nullable=False)
+    target_language_1 = db.Column(language_enum(), nullable=False)
+    target_language_2 = db.Column(language_enum(), nullable=False)
+    translated_text_1 = db.Column(db.Text)
+    translated_text_2 = db.Column(db.Text)
+    audio_url_source = db.Column(db.String(512))
+    audio_url_1 = db.Column(db.String(512))
+    audio_url_2 = db.Column(db.String(512))
+    translation_provider = db.Column(db.String(32))
+    tts_provider = db.Column(db.String(32))
+    tts_voice_source = db.Column(db.String(128))
+    tts_voice_1 = db.Column(db.String(128))
+    tts_voice_2 = db.Column(db.String(128))
+    status = db.Column(db.String(32), default="draft", nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=dt.datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=dt.datetime.utcnow, nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey("lp_students.id"), nullable=True)
+
+    __table_args__ = (CheckConstraint("target_language_1 != target_language_2", name="ck_shared_targets_unique"),)
+
+    def touch(self) -> None:
+        self.updated_at = dt.datetime.utcnow()
+
+    def as_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "prompt": self.prompt,
+            "difficulty": self.difficulty,
+            "source_language": self.source_language,
+            "source_text": self.source_text,
+            "target_language_1": self.target_language_1,
+            "target_language_2": self.target_language_2,
+            "translated_text_1": self.translated_text_1,
+            "translated_text_2": self.translated_text_2,
+            "audio_url_source": self.audio_url_source,
+            "audio_url_1": self.audio_url_1,
+            "audio_url_2": self.audio_url_2,
+            "translation_provider": self.translation_provider,
+            "tts_provider": self.tts_provider,
+            "tts_voice_source": self.tts_voice_source,
+            "tts_voice_1": self.tts_voice_1,
+            "tts_voice_2": self.tts_voice_2,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
